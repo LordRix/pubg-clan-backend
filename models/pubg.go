@@ -13,7 +13,7 @@ type PlayerResponse struct {
 				Data []struct {
 					ID string `json:"id"`
 				} `json:"data"`
-			} `json:"relationships"`
+			} `json:"matches"`
 		} `json:"relationships"`
 	} `json:"data"`
 }
@@ -23,17 +23,19 @@ type MatchResponse struct {
 		ID         string `json:"id"`
 		Attributes struct {
 			CreatedAt time.Time `json:"createdAt"`
+			Duration  int       `json:"duration"`
+			MapName   string    `json:"mapName"`
 		} `json:"attributes"`
-		Included []struct {
-			Type       string `json:"type"`
-			ID         string `json:"id"`
-			Attributes struct {
-				Stats struct {
-					WinPlace int `json:"winPlace"`
-				} `json:"stats"`
-			} `json:"attributes"`
-		} `json:"included"`
 	} `json:"data"`
+	Included []struct {
+		Type       string `json:"type"`
+		ID         string `json:"id"`
+		Attributes struct {
+			Stats struct {
+				WinPlace int `json:"rank"`
+			} `json:"stats"`
+		} `json:"attributes"`
+	} `json:"included"`
 }
 
 type ScoreboardEntry struct {

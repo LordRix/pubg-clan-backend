@@ -44,52 +44,68 @@ func GetScoreboard(minDate time.Time) []models.ScoreboardEntry {
 
 	var scoreboard []models.ScoreboardEntry
 
-	for _, playerName := range ClanMembers {
-		log.Printf("%s %s", utils.Blue("[PLAYER] Processing"), playerName)
+	playerIDMap, err := LoadPlayerIDMap("players_id.json")
+	if err != nil {
+		log.Printf("%s Failed to load player ID map: %v", utils.Red("[ERROR]"), err)
+		return nil
+	}
 
-		playerID, err := GetOrFetchPlayerID(playerName)
-		if err != nil {
-			log.Printf("%s Failed fetching player ID for %s: %v", utils.Red("[ERROR]"), playerName, err)
-			continue
-		}
-		log.Printf("%s Fetching PlayerID for %s - %s", utils.Blue("[PUBG API]"), utils.Yellow(playerName), utils.Green(playerID))
-
+	for playerName, playerID := range playerIDMap {
+		log.Printf("Player Name: %s, Player ID: %s", playerName, playerID)
 		matchIDs, err := getPlayerMatches(playerName)
 		if err != nil {
 			log.Printf("%s Failed fetching matches for %s: %v", utils.Red("[ERROR]"), playerName, err)
 			continue
 		}
-
-		chickenDinners := 0
-		for _, matchID := range matchIDs {
-			won, matchTime, err := checkIfChickenDinner(playerID, matchID)
-			if err != nil {
-				log.Printf("%s Failed checking match %s for %s: %v", utils.Red("[ERROR]"), matchID, playerName, err)
-				continue
-			}
-			if matchTime.Before(minDate) {
-				continue
-			}
-			if won {
-				chickenDinners++
-				log.Printf("%s %s won match %s 🐔", utils.Green("[MATCH]"), playerName, matchID)
-			}
-		}
-
-		log.Printf("%s %s has %d Chicken Dinners 🐔", utils.Green("[SUMMARY]"), playerName, chickenDinners)
-
-		scoreboard = append(scoreboard, models.ScoreboardEntry{
-			PlayerName:     playerName,
-			ChickenDinners: chickenDinners,
-		})
+		log.Printf("%s : %s : %s\n\n", playerName, playerID, matchIDs)
 	}
 
-	cache.Lock.Lock()
-	cache.Data = scoreboard
-	cache.ExpiryTime = time.Now().Add(cache.TTL)
-	cache.Lock.Unlock()
+	// for _, playerName := range ClanMembers {
+	// 	log.Printf("%s %s", utils.Blue("[PLAYER] Processing"), playerName)
 
-	log.Println(utils.Green("[CACHE] Scoreboard cached successfully"))
+	// 	playerID, err := GetOrFetchPlayerID(playerName)
+	// 	if err != nil {
+	// 		log.Printf("%s Failed fetching player ID for %s: %v", utils.Red("[ERROR]"), playerName, err)
+	// 		continue
+	// 	}
+	// 	log.Printf("%s Fetching PlayerID for %s - %s", utils.Blue("[PUBG API]"), utils.Yellow(playerName), utils.Green(playerID))
+
+	// 	matchIDs, err := getPlayerMatches(playerName)
+	// 	if err != nil {
+	// 		log.Printf("%s Failed fetching matches for %s: %v", utils.Red("[ERROR]"), playerName, err)
+	// 		continue
+	// 	}
+
+	// 	chickenDinners := 0
+	// 	for _, matchID := range matchIDs {
+	// 		won, matchTime, err := checkIfChickenDinner(playerID, matchID)
+	// 		if err != nil {
+	// 			log.Printf("%s Failed checking match %s for %s: %v", utils.Red("[ERROR]"), matchID, playerName, err)
+	// 			continue
+	// 		}
+	// 		if matchTime.Before(minDate) {
+	// 			continue
+	// 		}
+	// 		if won {
+	// 			chickenDinners++
+	// 			log.Printf("%s %s won match %s 🐔", utils.Green("[MATCH]"), playerName, matchID)
+	// 		}
+	// 	}
+
+	// 	log.Printf("%s %s has %d Chicken Dinners 🐔", utils.Green("[SUMMARY]"), playerName, chickenDinners)
+
+	// 	scoreboard = append(scoreboard, models.ScoreboardEntry{
+	// 		PlayerName:     playerName,
+	// 		ChickenDinners: chickenDinners,
+	// 	})
+	// }
+
+	// cache.Lock.Lock()
+	// cache.Data = scoreboard
+	// cache.ExpiryTime = time.Now().Add(cache.TTL)
+	// cache.Lock.Unlock()
+
+	// log.Println(utils.Green("[CACHE] Scoreboard cached successfully"))
 	return scoreboard
 }
 
@@ -218,4 +234,19 @@ func safeDoRequest(req *http.Request) (*http.Response, error) {
 	}
 
 	return nil, fmt.Errorf("too many retries after rate limiting")
+}
+func LoadPlayerIDMap(filePath string) (map[string]string, error) {
+	// Read the file contents directly
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %v", err)
+	}
+
+	// Parse the JSON into a map
+	playerIDMap := make(map[string]string)
+	if err := json.Unmarshal(data, &playerIDMap); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal JSON: %v", err)
+	}
+
+	return playerIDMap, nil
 }

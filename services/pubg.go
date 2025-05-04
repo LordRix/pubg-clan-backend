@@ -53,36 +53,35 @@ func GetScoreboard(minDate time.Time) []models.ScoreboardEntry {
 			continue
 		}
 		log.Printf("%s Fetching PlayerID for %s - %s", utils.Blue("[PUBG API]"), utils.Yellow(playerName), utils.Green(playerID))
-		/*
-			matchIDs, err := getPlayerMatches(playerName)
+
+		matchIDs, err := getPlayerMatches(playerName)
+		if err != nil {
+			log.Printf("%s Failed fetching matches for %s: %v", utils.Red("[ERROR]"), playerName, err)
+			continue
+		}
+
+		chickenDinners := 0
+		for _, matchID := range matchIDs {
+			won, matchTime, err := checkIfChickenDinner(playerID, matchID)
 			if err != nil {
-				log.Printf("%s Failed fetching matches for %s: %v", utils.Red("[ERROR]"), playerName, err)
+				log.Printf("%s Failed checking match %s for %s: %v", utils.Red("[ERROR]"), matchID, playerName, err)
 				continue
 			}
-
-			chickenDinners := 0
-			for _, matchID := range matchIDs {
-				won, matchTime, err := checkIfChickenDinner(playerID, matchID)
-				if err != nil {
-					log.Printf("%s Failed checking match %s for %s: %v", utils.Red("[ERROR]"), matchID, playerName, err)
-					continue
-				}
-				if matchTime.Before(minDate) {
-					continue
-				}
-				if won {
-					chickenDinners++
-					log.Printf("%s %s won match %s 🐔", utils.Green("[MATCH]"), playerName, matchID)
-				}
+			if matchTime.Before(minDate) {
+				continue
 			}
+			if won {
+				chickenDinners++
+				log.Printf("%s %s won match %s 🐔", utils.Green("[MATCH]"), playerName, matchID)
+			}
+		}
 
-			log.Printf("%s %s has %d Chicken Dinners 🐔", utils.Green("[SUMMARY]"), playerName, chickenDinners)
+		log.Printf("%s %s has %d Chicken Dinners 🐔", utils.Green("[SUMMARY]"), playerName, chickenDinners)
 
-			scoreboard = append(scoreboard, models.ScoreboardEntry{
-				PlayerName:     playerName,
-				ChickenDinners: chickenDinners,
-			})
-		*/
+		scoreboard = append(scoreboard, models.ScoreboardEntry{
+			PlayerName:     playerName,
+			ChickenDinners: chickenDinners,
+		})
 	}
 
 	cache.Lock.Lock()

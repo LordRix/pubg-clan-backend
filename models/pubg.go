@@ -28,14 +28,19 @@ type MatchResponse struct {
 		} `json:"attributes"`
 	} `json:"data"`
 	Included []struct {
-		Type       string `json:"type"`
-		ID         string `json:"id"`
-		Attributes struct {
-			Stats struct {
-				WinPlace int `json:"rank"`
-			} `json:"stats"`
-		} `json:"attributes"`
+		Type       string     `json:"type"`
+		ID         string     `json:"id"`
+		Attributes Attributes `json:"attributes"`
 	} `json:"included"`
+}
+type Stats struct {
+	Name     string `json:"name"`
+	WinPlace int    `json:"winPlace"`
+	PlayerId string `json:"playerId"`
+}
+
+type Attributes struct {
+	Stats Stats `json:"stats"`
 }
 
 type ScoreboardEntry struct {

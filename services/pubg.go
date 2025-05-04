@@ -17,7 +17,7 @@ var (
 	pubgBaseURL = "https://api.pubg.com/shards/steam"
 	apiKey      string // initialized by InitAPIKey()
 	httpClient  = &http.Client{Timeout: 10 * time.Second}
-	ClanMembers = []string{"LordRix"} // customize your players
+	ClanMembers = []string{"LordRix", "TanaX18", "M1key-D", "GRenes", "Jarm00725", "Remnorz", "Kalliyo"} // customize your players
 )
 
 // InitAPIKey loads and validates the API key from environment
@@ -52,35 +52,37 @@ func GetScoreboard(minDate time.Time) []models.ScoreboardEntry {
 			log.Printf("%s Failed fetching player ID for %s: %v", utils.Red("[ERROR]"), playerName, err)
 			continue
 		}
-
-		matchIDs, err := getPlayerMatches(playerName)
-		if err != nil {
-			log.Printf("%s Failed fetching matches for %s: %v", utils.Red("[ERROR]"), playerName, err)
-			continue
-		}
-
-		chickenDinners := 0
-		for _, matchID := range matchIDs {
-			won, matchTime, err := checkIfChickenDinner(playerID, matchID)
+		log.Printf("%s Fetching PlayerID for %s - %s", utils.Blue("[PUBG API]"), utils.Yellow(playerName), utils.Green(playerID))
+		/*
+			matchIDs, err := getPlayerMatches(playerName)
 			if err != nil {
-				log.Printf("%s Failed checking match %s for %s: %v", utils.Red("[ERROR]"), matchID, playerName, err)
+				log.Printf("%s Failed fetching matches for %s: %v", utils.Red("[ERROR]"), playerName, err)
 				continue
 			}
-			if matchTime.Before(minDate) {
-				continue
-			}
-			if won {
-				chickenDinners++
-				log.Printf("%s %s won match %s 🐔", utils.Green("[MATCH]"), playerName, matchID)
-			}
-		}
 
-		log.Printf("%s %s has %d Chicken Dinners 🐔", utils.Green("[SUMMARY]"), playerName, chickenDinners)
+			chickenDinners := 0
+			for _, matchID := range matchIDs {
+				won, matchTime, err := checkIfChickenDinner(playerID, matchID)
+				if err != nil {
+					log.Printf("%s Failed checking match %s for %s: %v", utils.Red("[ERROR]"), matchID, playerName, err)
+					continue
+				}
+				if matchTime.Before(minDate) {
+					continue
+				}
+				if won {
+					chickenDinners++
+					log.Printf("%s %s won match %s 🐔", utils.Green("[MATCH]"), playerName, matchID)
+				}
+			}
 
-		scoreboard = append(scoreboard, models.ScoreboardEntry{
-			PlayerName:     playerName,
-			ChickenDinners: chickenDinners,
-		})
+			log.Printf("%s %s has %d Chicken Dinners 🐔", utils.Green("[SUMMARY]"), playerName, chickenDinners)
+
+			scoreboard = append(scoreboard, models.ScoreboardEntry{
+				PlayerName:     playerName,
+				ChickenDinners: chickenDinners,
+			})
+		*/
 	}
 
 	cache.Lock.Lock()
@@ -108,8 +110,6 @@ func getPlayerID(playerName string) (string, error) {
 		return id, nil
 	}
 
-	log.Printf("%s Fetching PlayerID for %s", utils.Blue("[PUBG API]"), playerName)
-
 	req, _ := http.NewRequest("GET", pubgBaseURL+"/players?filter[playerNames]="+playerName, nil)
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Accept", "application/vnd.api+json")
@@ -134,7 +134,7 @@ func getPlayerID(playerName string) (string, error) {
 	cache.PlayerIDCacheMux.Lock()
 	cache.PlayerIDCache[playerName] = id
 	cache.PlayerIDCacheMux.Unlock()
-
+	//log.Printf("%s Fetching PlayerID for %s - %s", utils.Blue("[PUBG API]"), utils.Yellow(playerName), utils.Green(id))
 	return id, nil
 }
 
@@ -187,17 +187,13 @@ func checkIfChickenDinner(playerID, matchID string) (bool, time.Time, error) {
 	if err := json.NewDecoder(resp.Body).Decode(&match); err != nil {
 		return false, time.Now(), err
 	}
-	log.Println(utils.Green("Time: " + match.Data.Attributes.CreatedAt.String()))
-	log.Println(utils.Green("Duration: " + strconv.Itoa(match.Data.Attributes.Duration)))
-	log.Println(utils.Green("MapName: " + match.Data.Attributes.MapName))
 	for _, participant := range match.Included {
-		if participant.Type == "participant" && participant.ID == playerID {
+		if participant.Type == "participant" && participant.Attributes.Stats.PlayerId == playerID {
 			winPlace := participant.Attributes.Stats.WinPlace
 			log.Println(utils.Green("Place: " + strconv.Itoa(winPlace)))
 			return winPlace == 1, match.Data.Attributes.CreatedAt, nil
 		}
 	}
-
 	return false, match.Data.Attributes.CreatedAt, fmt.Errorf("participant not found")
 }
 

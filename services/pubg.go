@@ -17,7 +17,9 @@ var (
 	pubgBaseURL = "https://api.pubg.com/shards/steam"
 	apiKey      string // initialized by InitAPIKey()
 	httpClient  = &http.Client{Timeout: 10 * time.Second}
-	ClanMembers = []string{"LordRix", "TanaX18", "M1key-D", "GRenes", "Jarm00725", "Remnorz", "Kalliyo"} // customize your players
+	//ClanMembers = []string{"LordRix", "TanaX18", "M1key-D", "GRenes", "Jarm00725", "Remnorz", "Kalliyo"} // customize your players
+	ClanMembers = []string{"LordRix"} // customize your players
+
 )
 
 // InitAPIKey loads and validates the API key from environment
@@ -54,14 +56,20 @@ func GetScoreboard(minDate time.Time) []models.ScoreboardEntry {
 		}
 		log.Printf("%s Fetching PlayerID for %s - %s", utils.Blue("[PUBG API]"), utils.Yellow(playerName), utils.Green(playerID))
 
-		matchIDs, err := getPlayerMatches(playerName)
+		matchIDs, err := getPlayerMatches(playerName, minDate)
 		if err != nil {
 			log.Printf("%s Failed fetching matches for %s: %v", utils.Red("[ERROR]"), playerName, err)
 			continue
 		}
+		log.Printf("%s %s has %d matches", utils.Green("[MATCH]"), playerName, len(matchIDs))
 
 		chickenDinners := 0
+		matchSet := make(map[string]struct{})
 		for _, matchID := range matchIDs {
+			matchSet[matchID] = struct{}{}
+		}
+
+		for matchID := range matchSet {
 			won, matchTime, err := checkIfChickenDinner(playerID, matchID)
 			if err != nil {
 				log.Printf("%s Failed checking match %s for %s: %v", utils.Red("[ERROR]"), matchID, playerName, err)
@@ -138,7 +146,7 @@ func getPlayerID(playerName string) (string, error) {
 }
 
 // getPlayerMatches fetches recent matches for a player
-func getPlayerMatches(playerName string) ([]string, error) {
+func getPlayerMatches(playerName string, minDate time.Time) ([]string, error) {
 	req, _ := http.NewRequest("GET", pubgBaseURL+"/players?filter[playerNames]="+playerName, nil)
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Accept", "application/vnd.api+json")
@@ -160,7 +168,38 @@ func getPlayerMatches(playerName string) ([]string, error) {
 
 	var matches []string
 	for _, m := range pr.Data[0].Relationships.Matches.Data {
-		matches = append(matches, m.ID)
+		// Fetch match details to check the creation time
+		matchReq, _ := http.NewRequest("GET", pubgBaseURL+"/matches/"+m.ID, nil)
+		matchReq.Header.Set("Authorization", "Bearer "+apiKey)
+		matchReq.Header.Set("Accept", "application/vnd.api+json")
+
+		matchResp, err := safeDoRequest(matchReq)
+		if err != nil {
+			log.Printf("%s Failed fetching match details for match %s: %v", utils.Red("[ERROR]"), m.ID, err)
+			continue
+		}
+		defer matchResp.Body.Close()
+
+		if matchResp.StatusCode != http.StatusOK {
+			log.Printf("%s PUBG API error for match %s: %s", utils.Red("[ERROR]"), m.ID, matchResp.Status)
+			continue
+		}
+
+		var match models.MatchResponse
+		if err := json.NewDecoder(matchResp.Body).Decode(&match); err != nil {
+			log.Printf("%s Failed decoding match details for match %s: %v", utils.Red("[ERROR]"), m.ID, err)
+			continue
+		}
+
+		// Parse the CreatedAt field if necessary
+		createdAt := match.Data.Attributes.CreatedAt
+
+		log.Printf("CreatedAt: %s, MinDate: %s", createdAt, minDate)
+		// Check if the match creation time is after the minDate
+		if createdAt.After(minDate) {
+			matches = append(matches, m.ID)
+			log.Printf("Included!")
+		}
 	}
 
 	return matches, nil
